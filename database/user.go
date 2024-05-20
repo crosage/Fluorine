@@ -1,0 +1,143 @@
+package database
+
+import (
+	"awesomeProject/structs"
+	"database/sql"
+)
+
+func CreateUser(user structs.User) error {
+	stmt, err := db.Prepare("INSERT INTO user (`username`,`passhash`) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(user.Username, user.Password)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteUser(userID int) error {
+	stmt, err := db.Prepare("DELETE FROM user WHERE id = ?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(userID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateUser(user structs.User) error {
+	stmt, err := db.Prepare("UPDATE user SET username = ?, passhash = ? WHERE id = ?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(user.Username, user.Password, user.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetRolesByUsername(username string) ([]structs.Role, error) {
+	var roles []structs.Role
+	query := `
+		SELECT r.id, r.name
+		FROM roles r
+		JOIN user_roles ur ON r.id = ur.role_id
+		JOIN users u ON ur.user_id = u.id
+		WHERE u.username = ?
+	`
+	rows, err := db.Query(query, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var role structs.Role
+		err := rows.Scan(&role.ID, &role.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		permissions, err := GetPermissionsByRole(role.Name)
+		if err != nil {
+			return nil, err
+		}
+		role.Permissions = permissions
+
+		roles = append(roles, role)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return roles, nil
+}
+
+func GetUserByID(userID int) (structs.User, error) {
+	var user structs.User
+	query := "SELECT id, username, password FROM users WHERE id = ?"
+	row := db.QueryRow(query, userID)
+	err := row.Scan(&user.ID, &user.Username, &user.Password)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return user, nil // Return empty user object and nil error
+		}
+		return user, err
+	}
+
+	roles, err := GetRolesByUsername(user.Username)
+	if err != nil {
+		return user, err
+	}
+	user.Roles = roles
+
+	return user, nil
+}
+
+func GetUserByUsername(username string) (structs.User, error) {
+	var user structs.User
+	query := "SELECT id,username,password FROM users WHERE username=?"
+	row := db.QueryRow(query, username)
+	err := row.Scan(&user.ID, &user.Username, &user.Password)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return user, sql.ErrNoRows
+		}
+		return user, err
+	}
+	roles, err := GetRolesByUsername(user.Username)
+	if err != nil {
+		return user, err
+	}
+	user.Roles = roles
+
+	return user, nil
+}
+func GetAllUsers() ([]structs.User, error) {
+	var users []structs.User
+	query := "SELECT id,username,password FROM users"
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var user structs.User
+		err := rows.Scan(&user.ID, &user.Username, &user.Password)
+		if err != nil {
+			return nil, err
+		}
+		roles, err := GetRolesByUsername(user.Username)
+		if err != nil {
+			return nil, err
+		}
+		user.Roles = roles
+		users = append(users, user)
+	}
+	return users, nil
+}
