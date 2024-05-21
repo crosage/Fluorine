@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func LoginHandler(ctx *fiber.Ctx) error {
+func userLogin(ctx *fiber.Ctx) error {
 	var user structs.User
 	if err := jsoniter.Unmarshal(ctx.Body(), &user); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Failed to parse request body"})
@@ -52,4 +52,21 @@ func LoginHandler(ctx *fiber.Ctx) error {
 		log.Error().Err(err).Msg("No user")
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"error": "密码错误"})
 	}
+}
+
+func userRegister(ctx *fiber.Ctx) error {
+	var user structs.User
+	err := jsoniter.Unmarshal(ctx.Body(), &user)
+	if err != nil || len(user.Username) == 0 || len(user.Password) == 0 {
+		return ctx.Status(403).JSON(nil)
+	}
+	id, err := database.CreateUser(user)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "创建用户失败"})
+	}
+	err = database.UpdateUserRole(id, []structs.Role{*structs.GetRoleByName("普通用户")})
+	if err != nil {
+		return err
+	}
+	return ctx.Status(fiber.StatusOK).JSON("")
 }

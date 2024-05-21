@@ -63,14 +63,12 @@ func GetAllRoles() ([]structs.Role, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
 	for rows.Next() {
 		var role structs.Role
 		err := rows.Scan(&role.ID, &role.Name)
 		if err != nil {
 			return nil, err
 		}
-
 		permissions, err := GetPermissionsByRole(role.Name)
 		if err != nil {
 			return nil, err

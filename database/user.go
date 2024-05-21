@@ -5,16 +5,24 @@ import (
 	"database/sql"
 )
 
-func CreateUser(user structs.User) error {
+func CreateUser(user structs.User) (int, error) {
 	stmt, err := db.Prepare("INSERT INTO user (`username`,`passhash`) VALUES (?, ?)")
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = stmt.Exec(user.Username, user.Password)
+	defer stmt.Close()
+
+	result, err := stmt.Exec(user.Username, user.Password)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
 }
 
 func DeleteUser(userID int) error {
@@ -39,6 +47,29 @@ func UpdateUser(user structs.User) error {
 		return err
 	}
 	return nil
+}
+
+func UpdateUserRole(userID int, roles []structs.Role) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM user_roles WHERE user_id = ?", userID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for _, role := range roles {
+		_, err = tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", userID, role.ID)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func GetRolesByUsername(username string) ([]structs.Role, error) {
