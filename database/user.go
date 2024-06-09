@@ -6,7 +6,7 @@ import (
 )
 
 func CreateUser(user structs.User) (int, error) {
-	stmt, err := db.Prepare("INSERT INTO user (`username`,`passhash`) VALUES (?, ?)")
+	stmt, err := db.Prepare("INSERT INTO users (`username`,`password`) VALUES (?, ?)")
 	if err != nil {
 		return 0, err
 	}
@@ -26,7 +26,7 @@ func CreateUser(user structs.User) (int, error) {
 }
 
 func DeleteUser(userID int) error {
-	stmt, err := db.Prepare("DELETE FROM user WHERE id = ?")
+	stmt, err := db.Prepare("DELETE FROM users WHERE id = ?")
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func DeleteUser(userID int) error {
 }
 
 func UpdateUser(user structs.User) error {
-	stmt, err := db.Prepare("UPDATE user SET username = ?, passhash = ? WHERE id = ?")
+	stmt, err := db.Prepare("UPDATE users SET username = ?, password = ? WHERE id = ?")
 	if err != nil {
 		return err
 	}
@@ -70,6 +70,11 @@ func UpdateUserRole(userID int, roles []structs.Role) error {
 	}
 
 	return tx.Commit()
+}
+
+func AddRoleToUser(userID, roleID int) error {
+	_, err := db.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", userID, roleID)
+	return err
 }
 
 func GetRolesByUsername(username string) ([]structs.Role, error) {

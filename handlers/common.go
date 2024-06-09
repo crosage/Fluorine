@@ -11,7 +11,7 @@ func InitHandlers(app *fiber.App) {
 		AllowOrigins: "*",
 		AllowMethods: "GET, POST, PUT, DELETE",
 	}))
-	app.Post("/api/register", userLogin)
+	app.Post("/api/login", userLogin)
 	app.Post("/api/register", userRegister)
 	app.Get("/api/role", getAllRoles)
 	app.Use(jwtware.New(jwtware.Config{

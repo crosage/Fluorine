@@ -5,6 +5,7 @@ import (
 	"awesomeProject/structs"
 	"awesomeProject/utils"
 	"database/sql"
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/json-iterator/go"
@@ -57,16 +58,34 @@ func userLogin(ctx *fiber.Ctx) error {
 func userRegister(ctx *fiber.Ctx) error {
 	var user structs.User
 	err := jsoniter.Unmarshal(ctx.Body(), &user)
-	if err != nil || len(user.Username) == 0 || len(user.Password) == 0 {
-		return ctx.Status(403).JSON(nil)
+
+	hashedPassword, err := utils.HashPassword(user.Password)
+	if err != nil {
+		log.Error().Err(err).Msg("Error hashing password")
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "用户密码处理失败"})
 	}
+	user.Password = hashedPassword
+
+	if err != nil || len(user.Username) == 0 || len(user.Password) == 0 {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "无效的用户名或密码"})
+	}
+
 	id, err := database.CreateUser(user)
 	if err != nil {
+		fmt.Println(err)
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "创建用户失败"})
 	}
-	err = database.UpdateUserRole(id, []structs.Role{*structs.GetRoleByName("普通用户")})
+
+	role, err := database.GetRoleByName("普通员工")
+	fmt.Println(err)
 	if err != nil {
-		return err
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取角色失败"})
 	}
-	return ctx.Status(fiber.StatusOK).JSON("")
+
+	err = database.AddRoleToUser(int(id), role.ID)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "分配角色失败"})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"message": "用户注册成功"})
 }

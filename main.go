@@ -12,5 +12,5 @@ func main() {
 
 	database.InitDatabase()
 	handlers.InitHandlers(app)
-	app.Listen(":3000")
+	app.Listen(":23333")
 }

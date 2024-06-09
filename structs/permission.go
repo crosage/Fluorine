@@ -1,7 +1,6 @@
 package structs
 
 type Permission struct {
-	ID          int
-	Name        string
-	Description string
+	ID   int    `json:"id,omitempty"`
+	Name string `json:"name"`
 }

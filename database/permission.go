@@ -6,9 +6,9 @@ import (
 
 func GetPermissionByID(permissionID int) (structs.Permission, error) {
 	var permission structs.Permission
-	query := "SELECT id, name, description FROM permissions WHERE id = ?"
+	query := "SELECT id, name FROM permissions WHERE id = ?"
 	row := db.QueryRow(query, permissionID)
-	err := row.Scan(&permission.ID, &permission.Name, &permission.Description)
+	err := row.Scan(&permission.ID, &permission.Name)
 	if err != nil {
 		return permission, err
 	}
@@ -17,7 +17,7 @@ func GetPermissionByID(permissionID int) (structs.Permission, error) {
 
 func GetAllPermissions() ([]structs.Permission, error) {
 	var permissions []structs.Permission
-	query := "SELECT id, name, description FROM permissions"
+	query := "SELECT id, name FROM permissions"
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func GetAllPermissions() ([]structs.Permission, error) {
 
 	for rows.Next() {
 		var permission structs.Permission
-		err := rows.Scan(&permission.ID, &permission.Name, &permission.Description)
+		err := rows.Scan(&permission.ID, &permission.Name)
 		if err != nil {
 			return nil, err
 		}
