@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
+	"strconv"
 )
 
 func userLogin(ctx *fiber.Ctx) error {
@@ -37,6 +38,7 @@ func userLogin(ctx *fiber.Ctx) error {
 		claims := jwt.MapClaims{
 			"id":       datauser.ID,
 			"username": datauser.Username,
+			"roles":    datauser.Roles,
 		}
 		token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(JwtSecret))
 		if err != nil {
@@ -51,8 +53,32 @@ func userLogin(ctx *fiber.Ctx) error {
 		})
 	} else {
 		log.Error().Err(err).Msg("No user")
-		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"error": "密码错误"})
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "密码错误"})
 	}
+}
+
+func getAllUsers(ctx *fiber.Ctx) error {
+	hasPermission := validatePermission(ctx)
+	if !hasPermission {
+		return ctx.Status(403).JSON(fiber.Map{"error": "无权限"})
+	}
+	users, err := database.GetAllUsers()
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching users")
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "获取用户信息失败"})
+	}
+
+	var usersJSON []map[string]interface{}
+	for _, user := range users {
+		userJSON := map[string]interface{}{
+			"id":       user.ID,
+			"username": user.Username,
+			"roles":    user.Roles,
+		}
+		usersJSON = append(usersJSON, userJSON)
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(usersJSON)
 }
 
 func userRegister(ctx *fiber.Ctx) error {
@@ -88,4 +114,34 @@ func userRegister(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"message": "用户注册成功"})
+}
+
+func AddRoleToUserHandler(c *fiber.Ctx) error {
+
+	userID, err := strconv.Atoi(c.Params("uid"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	var request struct {
+		RoleID int `json:"rid"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse request body",
+		})
+	}
+
+	err = database.AddRoleToUser(userID, request.RoleID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to add role to user",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Role added to user successfully",
+	})
 }
