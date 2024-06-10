@@ -5,6 +5,7 @@ import (
 	"awesomeProject/structs"
 	"awesomeProject/utils"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -78,7 +79,9 @@ func getAllUsers(ctx *fiber.Ctx) error {
 		usersJSON = append(usersJSON, userJSON)
 	}
 
-	return ctx.Status(fiber.StatusOK).JSON(usersJSON)
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"users": usersJSON,
+	})
 }
 
 func userRegister(ctx *fiber.Ctx) error {
@@ -116,11 +119,14 @@ func userRegister(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{"message": "用户注册成功"})
 }
 
-func AddRoleToUserHandler(c *fiber.Ctx) error {
-
-	userID, err := strconv.Atoi(c.Params("uid"))
+func addRoleToUserHandler(ctx *fiber.Ctx) error {
+	hasPermission := validatePermission(ctx)
+	if !hasPermission {
+		return ctx.Status(403).JSON(fiber.Map{"error": "无权限"})
+	}
+	userID, err := strconv.Atoi(ctx.Params("uid"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid user ID",
 		})
 	}
@@ -128,20 +134,96 @@ func AddRoleToUserHandler(c *fiber.Ctx) error {
 	var request struct {
 		RoleID int `json:"rid"`
 	}
-	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	if err := ctx.BodyParser(&request); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Failed to parse request body",
 		})
 	}
 
 	err = database.AddRoleToUser(userID, request.RoleID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		fmt.Println(err)
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to add role to user",
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Role added to user successfully",
+	})
+}
+
+func removeRoleFromUserHandler(ctx *fiber.Ctx) error {
+	hasPermission := validatePermission(ctx)
+	if !hasPermission {
+		return ctx.Status(403).JSON(fiber.Map{"error": "无权限"})
+	}
+	userID, err := strconv.Atoi(ctx.Params("uid"))
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	var request struct {
+		RoleID int `json:"rid"`
+	}
+	if err := ctx.BodyParser(&request); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse request body",
+		})
+	}
+
+	err = database.RemoveRoleFromUser(userID, request.RoleID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			fmt.Println(err)
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to remove role from user",
+			})
+		}
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Role removed from user successfully",
+	})
+}
+
+func addRolesToUserHandler(ctx *fiber.Ctx) error {
+
+	userID, err := strconv.Atoi(ctx.Params("uid"))
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	var request struct {
+		RoleIDs []int `json:"rids"`
+	}
+
+	if err := ctx.BodyParser(&request); err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to parse request body",
+		})
+	}
+
+	var roles []structs.Role
+	for _, roleID := range request.RoleIDs {
+		fmt.Println("iiiiiiiiid:    ")
+		fmt.Println(roleID)
+		roles = append(roles, structs.Role{ID: roleID})
+	}
+
+	err = database.UpdateUserRole(userID, roles)
+	if err != nil {
+		fmt.Println(err)
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update roles for user",
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Roles updated for user successfully",
 	})
 }

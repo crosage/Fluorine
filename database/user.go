@@ -77,6 +77,11 @@ func AddRoleToUser(userID, roleID int) error {
 	return err
 }
 
+func RemoveRoleFromUser(userID, roleID int) error {
+	_, err := db.Exec("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?", userID, roleID)
+	return err
+}
+
 func GetRolesByUsername(username string) ([]structs.Role, error) {
 	var roles []structs.Role
 	query := `

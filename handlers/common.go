@@ -26,8 +26,10 @@ func InitHandlers(app *fiber.App) {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "未授权的访问"})
 		},
 	}))
-	app.Post("/api/role/:uid", AddRoleToUserHandler)
+	app.Post("/api/role/:uid", addRoleToUserHandler)
+	app.Delete("/api/role/:uid", removeRoleFromUserHandler)
 	app.Get("/api/user", getAllUsers)
+	app.Post("/api/roles/:uid", addRolesToUserHandler)
 }
 
 var JwtSecret = "RTRT"
